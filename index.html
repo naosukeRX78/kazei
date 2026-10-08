@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="課税判定">
+<meta name="theme-color" content="#101314">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<title>課税判定ナビ</title>
+<style>
+/* Layout: 判定＝検索→手当の一覧（タップで要件・根拠が開く）／計算＝4つの電卓／早見＝限度額の一覧。黒い本体に青緑のアクセント、判定は3色のチップ */
+:root{
+  color-scheme:dark;
+  --room:#101314; --panel:#181c1d; --panel-2:#1f2425; --edge:#323a3b; --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
+  --glass:#07090a; --text:#e6eae8; --muted:#919a97; --dim:#646d6a;
+  --acc:#5cc8b4; --acc-hot:#b9f0e3; --acc-dim:rgba(92,200,180,.13); --acc-glow:rgba(92,200,180,.4);
+  --hi:#7fd49a; --hi-bg:rgba(127,212,154,.14);
+  --jo:#f2c25c; --jo-bg:rgba(242,194,92,.14);
+  --ka:#f08a7e; --ka-bg:rgba(240,138,126,.14);
+  --f-ui:"Hiragino Sans","Hiragino Kaku Gothic ProN","BIZ UDPGothic","Yu Gothic UI","Meiryo",system-ui,sans-serif;
+  --f-min:"Hiragino Mincho ProN","Yu Mincho","BIZ UDPMincho",serif;
+  --f-num:ui-monospace,"SF Mono","Menlo","Consolas",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--room);color:var(--text)}
+body{font-family:var(--f-ui);font-size:15px;line-height:1.6;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+.wrap{max-width:640px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 10px) 14px calc(env(safe-area-inset-bottom,0px) + 86px)}
+header.top{display:flex;align-items:baseline;justify-content:space-between;margin:2px 2px 10px}
+header.top b{font-family:var(--f-min);font-size:17px;letter-spacing:.2em}
+header.top b::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:9px;vertical-align:3px;background:var(--acc);box-shadow:0 0 8px var(--acc-glow)}
+header.top span{font-family:var(--f-num);font-size:11px;color:var(--muted);letter-spacing:.1em}
+.search{position:sticky;top:calc(env(safe-area-inset-top,0px) + 4px);z-index:5;background:var(--room);padding:2px 0 8px}
+.search input{width:100%;font:500 16px var(--f-ui);color:var(--text);background:var(--panel-2);border:1px solid var(--edge);border-radius:12px;padding:11px 14px 11px 38px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23919a97' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='6.5'/%3E%3Cpath d='M16 16l4.5 4.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-size:18px;background-position:12px 50%}
+.filters{display:flex;gap:6px;margin-top:8px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.filters button{flex:none;font:600 13px var(--f-ui);color:var(--muted);background:var(--panel);border:1px solid var(--line-2);border-radius:999px;padding:6px 12px}
+.filters button.on{color:var(--room);background:var(--acc);border-color:var(--acc)}
+.filters button i{font-style:normal;font-family:var(--f-num);font-size:11px;opacity:.75;margin-left:4px}
+.chip{display:inline-block;font:700 11.5px var(--f-ui);border-radius:6px;padding:2px 8px;white-space:nowrap;letter-spacing:.04em}
+.chip.hi{color:var(--hi);background:var(--hi-bg)} .chip.jo{color:var(--jo);background:var(--jo-bg)} .chip.ka{color:var(--ka);background:var(--ka-bg)}
+.grp{font-size:12px;color:var(--muted);margin:14px 4px 6px;letter-spacing:.1em}
+.list{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.it{border-bottom:1px solid var(--line)} .it:last-child{border-bottom:0}
+.it>button{width:100%;display:grid;grid-template-columns:1fr auto 14px;gap:10px;align-items:center;text-align:left;background:none;border:0;color:var(--text);font:500 15px var(--f-ui);padding:12px 14px}
+.it>button::after{content:"";width:8px;height:8px;border-right:1.6px solid var(--dim);border-bottom:1.6px solid var(--dim);transform:rotate(45deg) translate(-2px,-2px);transition:transform .15s}
+.it.open>button::after{transform:rotate(-135deg) translate(-2px,-2px)}
+.it.open>button{color:var(--acc-hot)}
+.det{padding:0 14px 14px;display:grid;gap:10px}
+.det .rule{font-size:14.5px;line-height:1.75}
+.det ul{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.det li{position:relative;padding-left:20px;font-size:13.5px;line-height:1.65}
+.det li::before{content:"";position:absolute;left:4px;top:.6em;width:7px;height:7px;border-radius:2px;background:var(--acc)}
+.det .memo{font-size:12.5px;color:var(--muted);background:var(--panel-2);border-radius:10px;padding:9px 12px;line-height:1.7}
+.det .base{font-size:12px;color:var(--muted)} .det .base b{color:var(--text);font-weight:500}
+.go{justify-self:start;font:700 13px var(--f-ui);color:var(--room);background:var(--acc);border:0;border-radius:10px;padding:8px 14px}
+.empty{text-align:center;color:var(--muted);font-size:13px;padding:30px 0}
+.seg{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:12px}
+.seg button{font:600 13px var(--f-ui);color:var(--muted);background:none;border:0;border-radius:9px;padding:8px 0}
+.seg button.on{background:var(--acc-dim);color:var(--acc-hot)}
+.result{border-radius:16px;padding:12px 16px;margin-bottom:12px;background:linear-gradient(180deg,#0c0f10,var(--glass));
+  box-shadow:0 0 0 1px rgba(0,0,0,.8),0 0 0 3px #131718,0 0 0 4px var(--edge),0 12px 28px rgba(0,0,0,.5)}
+.rl{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.rl .lab{font-size:12px;color:var(--acc);font-weight:700;letter-spacing:.06em}
+.big{font-family:var(--f-num);font-size:clamp(1.6rem,8vw,2.2rem);font-weight:600;color:var(--acc-hot);text-shadow:0 0 14px var(--acc-glow);font-variant-numeric:tabular-nums;white-space:nowrap}
+.big small{font-size:.45em;margin-left:3px;color:var(--acc)}
+.big.bad{color:#ffc9c2;text-shadow:0 0 14px rgba(240,138,126,.45)} .big.bad small{color:var(--ka)}
+.rsub{display:flex;gap:4px 14px;flex-wrap:wrap;font-size:12px;color:var(--muted);font-family:var(--f-num);margin-top:4px}
+.rsub b{color:var(--text);font-weight:500}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;margin-bottom:12px;overflow:hidden}
+.card>h2{font-family:var(--f-min);font-size:15px;margin:0;padding:13px 16px 2px;letter-spacing:.06em}
+.bd{padding:10px 16px 14px;display:grid;gap:11px}
+.f{display:grid;gap:5px}
+.f>label{font-size:13px;color:var(--muted)}
+.u{position:relative}.u input{padding-right:2.8em}
+.u::after{content:attr(data-u);position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none}
+input[type=text]:not(#q),select{width:100%;font:500 17px var(--f-num);color:var(--text);background:var(--panel-2);border:1px solid var(--edge);border-radius:10px;padding:10px 12px;font-variant-numeric:tabular-nums}
+select{font-family:var(--f-ui);font-size:15px}
+input:focus,select:focus{outline:2px solid var(--acc);outline-offset:1px;border-color:transparent}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:360px){.row2{grid-template-columns:1fr}}
+.chk{display:flex;align-items:center;gap:10px;font-size:14px}
+.chk input{width:22px;height:22px;accent-color:var(--acc);flex:none}
+.radio{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.radio button{font:600 13.5px var(--f-ui);color:var(--muted);background:var(--panel-2);border:1px solid var(--edge);border-radius:10px;padding:9px 0}
+.radio button.on{color:var(--acc-hot);border-color:var(--acc);background:var(--acc-dim)}
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+.t th,.t td{padding:6px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.t th{color:var(--muted);font-weight:500;font-size:11.5px}
+.t th:first-child,.t td:first-child{text-align:left}
+.t td{font-family:var(--f-num)}
+.t td.j{font-family:var(--f-ui);white-space:normal}
+.t tr.hit td{color:var(--acc-hot);font-weight:700;background:var(--acc-dim)}
+.t tr.tot td{font-weight:700;color:var(--acc-hot);border-top:1px solid var(--line-2)}
+.checks{display:grid;gap:6px}
+.ck{display:flex;gap:9px;align-items:flex-start;font-size:13.5px}
+.ck i{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:12px;font-weight:800;margin-top:1px}
+.ck.y i{background:var(--hi-bg);color:var(--hi)} .ck.n i{background:var(--ka-bg);color:var(--ka)}
+.note{font-size:12px;color:var(--muted);line-height:1.7}
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;justify-content:center;background:rgba(16,19,20,.92);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-top:1px solid var(--line-2);padding:6px 8px calc(env(safe-area-inset-bottom,0px) + 6px)}
+nav.tabs div{display:flex;max-width:640px;width:100%}
+nav.tabs button{flex:1;background:none;border:0;color:var(--muted);font:600 12px var(--f-ui);padding:6px 0 4px;display:grid;justify-items:center;gap:3px}
+nav.tabs svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+nav.tabs button.on{color:var(--acc)}
+.foot{font-size:11.5px;color:var(--dim);line-height:1.7;margin:14px 4px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top"><b>課税判定ナビ</b><span>給与・手当 R8.4〜</span></header>
+
+<section id="v-judge">
+  <div class="search">
+    <input type="text" id="q" placeholder="手当・支給の名前で探す（例：通勤、祝金、社宅）" autocomplete="off" enterkeyhint="search">
+    <div class="filters" id="flt">
+      <button type="button" data-v="" class="on">すべて<i></i></button>
+      <button type="button" data-v="hi">非課税<i></i></button>
+      <button type="button" data-v="jo">条件付き<i></i></button>
+      <button type="button" data-v="ka">課税<i></i></button>
+    </div>
+  </div>
+  <div id="list"></div>
+  <p class="foot">「条件付き」は要件をすべて満たした場合に課税しないもの。役員だけ・特定の人だけを対象にした支給は、原則として課税されます。判断に迷うものは最終的に通達・質疑応答事例で確認してください。</p>
+</section>
+
+<section id="v-calc" hidden>
+  <div class="seg" id="seg">
+    <button type="button" data-c="tsukin" class="on">通勤手当</button>
+    <button type="button" data-c="shokuji">食事</button>
+    <button type="button" data-c="shukuchoku">宿日直</button>
+    <button type="button" data-c="shataku">社宅</button>
+  </div>
+
+  <div data-pane="tsukin">
+    <div class="result">
+      <div class="rl"><span class="lab">課税される部分（月額）</span><span class="big" id="tTax">0<small>円</small></span></div>
+      <div class="rsub"><span>非課税 <b id="tNon">0</b></span><span>非課税限度額 <b id="tLim">0</b></span></div>
+    </div>
+    <div class="card"><h2>通勤の方法</h2><div class="bd">
+      <div class="radio" id="tMode"><button type="button" data-m="car" class="on">車・自転車</button><button type="button" data-m="train">電車・バス</button><button type="button" data-m="both">併用</button></div>
+      <div class="f" id="tKmF"><label for="tKm">片道の通勤距離</label><div class="u" data-u="km"><input type="text" id="tKm" inputmode="decimal"></div></div>
+      <div class="f" id="tParkF"><label for="tPark">駐車場代として支給する額（月額・5,000円まで加算）</label><div class="u" data-u="円"><input type="text" id="tPark" inputmode="numeric"></div></div>
+      <div class="f" id="tFareF"><label for="tFare">合理的な経路の定期代（1か月あたり）</label><div class="u" data-u="円"><input type="text" id="tFare" inputmode="numeric"></div></div>
+      <div class="f"><label for="tPaid">通勤手当の支給額（月額）</label><div class="u" data-u="円"><input type="text" id="tPaid" inputmode="numeric"></div></div>
+      <div class="note" id="tNote"></div>
+    </div></div>
+    <div class="card"><h2>マイカー・自転車の限度額（令和8年4月1日以後）</h2><div class="bd"><div class="tw"><table class="t" id="tTbl"></table></div>
+      <div class="note">2km未満は全額課税。電車・バスとの併用は合計で月15万円まで。6か月定期などはその月数で割った1か月あたりの額で判定します。</div></div></div>
+  </div>
+
+  <div data-pane="shokuji" hidden>
+    <div class="result">
+      <div class="rl"><span class="lab" id="sLab">判定</span><span class="big" id="sBig">非課税</span></div>
+      <div class="rsub"><span>会社負担 <b id="sCo">0</b></span><span>本人負担の目安 <b id="sNeed">0</b> 以上</span></div>
+    </div>
+    <div class="card"><h2>食事の支給（月額・税抜）</h2><div class="bd">
+      <div class="f"><label for="sVal">食事の価額（仕出し弁当なら業者への支払額）</label><div class="u" data-u="円"><input type="text" id="sVal" inputmode="numeric"></div></div>
+      <div class="f"><label for="sSelf">従業員が負担している額</label><div class="u" data-u="円"><input type="text" id="sSelf" inputmode="numeric"></div></div>
+      <label class="chk"><input type="checkbox" id="sOld">令和8年3月以前に支給したもの（限度 3,500円）</label>
+      <div class="checks" id="sChk"></div>
+      <div class="note">要件を1つでも満たさないと、会社負担額の全額が給与として課税されます（超えた部分だけではありません）。消費税は含めずに判定します。</div>
+    </div></div>
+  </div>
+
+  <div data-pane="shukuchoku" hidden>
+    <div class="result">
+      <div class="rl"><span class="lab">課税される部分</span><span class="big" id="dTax">0<small>円</small></span></div>
+      <div class="rsub"><span>1回あたり非課税 <b id="dLim">0</b></span><span>非課税の合計 <b id="dNon">0</b></span></div>
+    </div>
+    <div class="card"><h2>宿直・日直</h2><div class="bd">
+      <div class="row2">
+        <div class="f"><label for="dPer">1回の宿日直料</label><div class="u" data-u="円"><input type="text" id="dPer" inputmode="numeric"></div></div>
+        <div class="f"><label for="dN">回数（月）</label><div class="u" data-u="回"><input type="text" id="dN" inputmode="numeric"></div></div>
+      </div>
+      <div class="f"><label for="dMeal">1回に支給する食事の価額（なければ0）</label><div class="u" data-u="円"><input type="text" id="dMeal" inputmode="numeric"></div></div>
+      <div class="note">1回4,000円（食事を支給する場合は食事の価額を引いた額）までの部分は課税しません。通常の勤務時間内の宿日直や、給与の額に比例して決める宿日直料は全額課税です。</div>
+    </div></div>
+  </div>
+
+  <div data-pane="shataku" hidden>
+    <div class="result">
+      <div class="rl"><span class="lab" id="hLab">課税される部分（月額）</span><span class="big" id="hTax">0<small>円</small></span></div>
+      <div class="rsub"><span>賃貸料相当額 <b id="hRent">0</b></span><span>50%ライン <b id="hHalf">0</b></span></div>
+    </div>
+    <div class="card"><h2>社宅・寮（使用人）</h2><div class="bd">
+      <div class="f"><label for="hBld">建物の固定資産税の課税標準額</label><div class="u" data-u="円"><input type="text" id="hBld" inputmode="numeric"></div></div>
+      <div class="f"><label for="hArea">建物の総床面積</label><div class="u" data-u="㎡"><input type="text" id="hArea" inputmode="decimal"></div></div>
+      <div class="f"><label for="hLand">敷地の固定資産税の課税標準額</label><div class="u" data-u="円"><input type="text" id="hLand" inputmode="numeric"></div></div>
+      <div class="f"><label for="hGot">従業員から徴収している家賃（月額）</label><div class="u" data-u="円"><input type="text" id="hGot" inputmode="numeric"></div></div>
+      <div class="tw"><table class="t" id="hTbl"></table></div>
+      <div class="note">借上社宅も、所有者から取り寄せた課税標準額で同じように計算します。マンションの1室は、建物・敷地の課税標準額を床面積の割合などで按分します。役員社宅は計算方法が異なります。</div>
+    </div></div>
+  </div>
+</section>
+
+<section id="v-quick" hidden>
+  <div class="card"><h2>金額基準の早見</h2><div class="bd"><div class="tw"><table class="t" id="qTbl"></table></div></div></div>
+  <div class="card"><h2>令和8年の改正点</h2><div class="bd">
+    <div class="checks">
+      <div class="ck y"><i>!</i><span>食事の支給：会社負担の上限を月3,500円から<b>7,500円</b>へ（令和8年4月1日以後）</span></div>
+      <div class="ck y"><i>!</i><span>深夜勤務の夜食代：1回300円から<b>650円</b>へ</span></div>
+      <div class="ck y"><i>!</i><span>マイカー通勤：<b>65km以上の区分</b>を新設、駐車場代を<b>月5,000円</b>まで加算</span></div>
+    </div>
+  </div></div>
+  <p class="foot">令和8年4月1日現在の所得税法・通達をもとに作成。社会保険料（標準報酬）の算定では、通勤手当や食事などの扱いが所得税と異なります（通勤手当は全額報酬に含める等）。データはこの端末の中だけで計算・保存されます。</p>
+</section>
+</div>
+
+<nav class="tabs"><div>
+  <button type="button" data-tab="judge" class="on"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5M8.5 11l1.8 1.8 3.4-3.6"/></svg>判定</button>
+  <button type="button" data-tab="calc"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2.5"/><path d="M8 7h8M8 11h2M12 11h2M16 11v6M8 14h2M12 14h2M8 17h6"/></svg>計算</button>
+  <button type="button" data-tab="quick"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M3.5 14.5h17M10 4.5v15"/></svg>早見</button>
+</div></nav>
+
+<script>
+/* 給与・手当の課税判定ナビ データ（令和8年4月1日現在の法令・通達） v: hi=非課税 / jo=条件付き非課税 / ka=課税 */
+var ITEMS = [
+ {id:'kekkon',cat:'慶弔',t:'結婚祝金（本人）',v:'jo',calc:null,
+  rule:'雇用契約等に基づく結婚祝金は給与だが、受ける人の地位等に照らし社会通念上相当と認められる金額なら課税しない。',
+  cond:['慶弔見舞金規程などに基づき、全員に同じ基準で支給','金額が地位・勤続年数に照らして社会通念上相当','役員だけ・特定の人だけへの高額な支給は課税'],
+  base:'所得税基本通達28-5',memo:'「社会通念上相当」に明確な金額基準はない。規程の金額が地域・同業他社の水準と比べて高い場合は、課税扱いにする判断もありうる。'},
+ {id:'shussan',cat:'慶弔',t:'出産祝金',v:'jo',
+  rule:'結婚祝金と同じ扱い。社会通念上相当な金額なら課税しない。',cond:['規程に基づき一律に支給','金額が社会通念上相当'],base:'所得税基本通達28-5'},
+ {id:'kodomo',cat:'慶弔',t:'子の結婚祝い・入学祝い',v:'jo',
+  rule:'従業員の家族の慶事に対する祝金も、社会通念上相当な金額なら課税しない。',cond:['規程に基づき一律に支給','金額が社会通念上相当'],base:'所得税基本通達28-5'},
+ {id:'koden',cat:'慶弔',t:'香典・弔慰金（家族の死亡）',v:'jo',
+  rule:'従業員の家族の死亡に対する香典・弔慰金は、社会通念上相当な金額なら課税しない。',cond:['規程に基づき支給','金額が社会通念上相当'],base:'所得税基本通達28-5',
+  memo:'従業員本人の死亡で遺族に払う弔慰金は所得税ではなく相続税の問題。業務上の死亡は死亡時の普通給与の3年分、業務外は6か月分まで弔慰金として非課税、超える部分は退職手当金等として相続税の対象。'},
+ {id:'mimai',cat:'慶弔',t:'傷病見舞金・災害見舞金',v:'hi',
+  rule:'心身や資産に加えられた損害について受ける見舞金は、社会通念上相当な金額なら非課税。',cond:['病気・けが・災害などに対する見舞金','金額が社会通念上相当（役務の対価としての性質がないこと）'],base:'所得税法9条1項18号、所得税法施行令30条、所得税基本通達9-23'},
+ {id:'eizoku',cat:'表彰',t:'永年勤続表彰（記念品・旅行）',v:'jo',
+  rule:'永年勤続者への記念品・旅行・観劇招待などは、次の要件をすべて満たせば課税しない。',
+  cond:['勤続期間等に照らし社会通念上相当な金額','勤続10年以上の人が対象','2回以上表彰する場合は、前回からおおむね5年以上の間隔','現金・商品券など使途が自由なものは課税'],
+  base:'所得税基本通達36-21',memo:'旅行券を支給する場合は、支給から1年以内に使用し、実施状況を会社に報告させ、使わなかった分は返還させるなどの条件を満たせば非課税（国税庁 質疑応答）。'},
+ {id:'soritsu',cat:'表彰',t:'創業記念品・建物落成の記念品',v:'jo',
+  rule:'創業記念・建物の落成記念などで一律に支給する記念品は、次の要件を満たせば課税しない。',
+  cond:['社会通念上記念品としてふさわしいもの','処分見込価額が1万円以下（税抜）','おおむね5年以上の間隔で行う記念行事','現金・商品券は課税'],base:'所得税基本通達36-22'},
+ {id:'hoshokin',cat:'表彰',t:'報奨金（営業成績・MVP・提案）',v:'ka',
+  rule:'業績や貢献に対して支給する報奨金・表彰金は、給与として課税される。',cond:['金額の大小にかかわらず課税','賞与として源泉徴収（賞与に対する源泉徴収税額の算出率の表）'],base:'所得税法28条（給与所得）'},
+ {id:'shikakushukukin',cat:'表彰',t:'資格取得祝金',v:'ka',
+  rule:'資格を取得したことに対して支給する祝金は、給与として課税される。',cond:['取得のための費用（受講料・受験料）の負担とは別'],base:'所得税法28条',memo:'受講料・受験料を会社が負担する場合は「資格取得の費用」を参照。'},
+ {id:'shikakuhiyo',cat:'教育',t:'資格取得の費用（受講料・受験料）',v:'jo',
+  rule:'職務に直接必要な技術・知識の習得や免許・資格の取得のための費用を、適正な額で会社が負担する場合は課税しない。',
+  cond:['会社の業務に直接必要な資格・知識であること','研修会・講習会の費用や受験料など適正な額','業務と関係の薄い資格（趣味・教養）は課税'],base:'所得税基本通達36-29の2'},
+ {id:'shokai',cat:'表彰',t:'社員紹介の謝礼（紹介料）',v:'ka',
+  rule:'自社の従業員に支払う採用紹介の謝礼は、給与として課税される。',cond:['従業員への支払は給与','従業員以外への紹介料は雑所得等'],base:'所得税法28条'},
+ {id:'tsukin',cat:'通勤・出張',t:'通勤手当',v:'jo',calc:'tsukin',
+  rule:'通勤距離・方法に応じた非課税限度額までは課税しない。超える部分は給与として課税。',
+  cond:['交通機関：合理的な経路の定期券代（月15万円まで）','マイカー・自転車：片道距離に応じた限度額（2km未満は全額課税）','令和8年4月1日以後：65km以上の区分を新設、駐車場代を月5,000円まで加算可'],
+  base:'所得税法9条1項5号、所得税法施行令20条の2'},
+ {id:'ryohi',cat:'通勤・出張',t:'出張旅費・日当',v:'jo',
+  rule:'職務を遂行するための旅行で、通常必要と認められる範囲の旅費・日当は非課税。',cond:['旅費規程に基づき、役員・使用人の全体で適正なバランス','同業種・同規模の他社と比べて相当な額','実態のない出張や高額な日当は課税'],base:'所得税法9条1項4号、所得税基本通達9-3'},
+ {id:'kisei',cat:'通勤・出張',t:'単身赴任者の帰省旅費',v:'ka',
+  rule:'私的な帰省の旅費は給与として課税。ただし職務上の出張に付随して帰宅する場合の旅費は非課税。',cond:['会議などの職務出張の機会に帰宅する部分は非課税','帰省だけを目的とする旅費は課税'],base:'所得税基本通達9-3、昭和60年直法6-7'},
+ {id:'shokuji',cat:'食事',t:'食事の支給（昼食補助）',v:'jo',calc:'shokuji',
+  rule:'次の2要件をともに満たせば課税しない。',
+  cond:['従業員が食事の価額の50%以上を負担','会社負担額（食事の価額−本人負担）が月7,500円以下（税抜）','令和8年3月以前の支給は月3,500円以下','現金での食事代の支給は課税（深夜勤務の夜食代を除く）'],
+  base:'所得税基本通達36-38の2（令和8年3月31日改正）'},
+ {id:'zangyo',cat:'食事',t:'残業・宿日直時の食事（現物）',v:'hi',
+  rule:'残業をした人や宿日直をした人に、勤務時間中に現物で支給する食事は課税しない。',cond:['現物（弁当など）での支給','現金で支給すると課税'],base:'所得税基本通達36-24'},
+ {id:'yashoku',cat:'食事',t:'深夜勤務者の夜食代（現金）',v:'jo',
+  rule:'夜食を現物で支給できない深夜勤務者に、夜食の代わりに支給する金銭は、1回650円以下（税抜）なら課税しない。',
+  cond:['正規の勤務時間の一部又は全部が午後10時から翌日午前5時までの深夜勤務','勤務1回ごとの定額支給','1回650円以下（令和8年の通達改正前は300円以下）'],base:'昭和59年直法6-5（令和8年3月31日改正）'},
+ {id:'shukuchoku',cat:'手当',t:'宿日直料',v:'jo',calc:'shukuchoku',
+  rule:'宿直・日直1回につき4,000円までは課税しない。超える部分は課税。',
+  cond:['宿直又は日直の勤務1回ごと','食事を支給する場合はその価額を差し引いた残額で判定','通常の勤務時間内の宿日直や、宿日直料を通常の給与に比例して決めている場合は全額課税'],base:'所得税基本通達28-1'},
+ {id:'shataku',cat:'住宅',t:'社宅・寮（使用人）',v:'jo',calc:'shataku',
+  rule:'従業員から「賃貸料相当額」の50%以上を徴収していれば課税しない。50%未満なら、賃貸料相当額と徴収額の差額が課税。',
+  cond:['賃貸料相当額（月額）＝建物の固定資産税課税標準額×0.2%＋12円×床面積(㎡)÷3.3㎡＋敷地の固定資産税課税標準額×0.22%','住宅手当として現金で支給すると課税','役員社宅は別の計算（小規模住宅かどうかで異なる）'],
+  base:'所得税基本通達36-41、36-45、36-47'},
+ {id:'ryoko',cat:'行事',t:'社員旅行（慰安旅行）',v:'jo',
+  rule:'次の要件を満たし、会社負担額が多額でない社員旅行は課税しない。',
+  cond:['旅行期間が4泊5日以内（海外は現地での滞在日数）','全従業員の50%以上が参加（工場・支店単位の旅行はその単位で50%以上）','不参加者に金銭を支給すると、参加者を含め全員に課税','役員だけの旅行、取引先との旅行は課税'],
+  base:'昭和63年直法6-9、平成5年課法8-1',memo:'会社負担額の目安について、国税庁の事例では1人10万円程度の旅行は非課税とされている。'},
+ {id:'bonenkai',cat:'行事',t:'忘年会・新年会・運動会',v:'hi',
+  rule:'全従業員を対象に会社が行う通常のレクリエーション行事の費用は課税しない。',cond:['全員参加を原則とする通常の行事','参加しない人に金銭を支給すると全員に課税','役員だけの行事は課税'],base:'所得税基本通達36-30'},
+ {id:'waribiki',cat:'物品',t:'社員割引（自社製品の値引販売）',v:'jo',
+  rule:'自社の商品を値引きして販売する場合、次の要件を満たせば課税しない。',
+  cond:['値引後の価格が会社の取得価額以上','通常の販売価格のおおむね70%以上','値引率が全員一律、又は地位・勤続年数に応じた合理的な格差','購入数量が一般の消費者が家事のために通常消費する程度'],base:'所得税基本通達36-23'},
+ {id:'seifuku',cat:'物品',t:'制服・作業服',v:'hi',
+  rule:'職務の性質上着用が必要な制服・事務服・作業服などの支給・貸与は課税しない。',cond:['業務で着用するもの','私服として使えるスーツ等を支給すると課税'],base:'所得税法施行令21条2号・3号、所得税基本通達9-8'},
+ {id:'shohinken',cat:'物品',t:'商品券・ギフトカードの支給',v:'ka',
+  rule:'商品券・ギフトカードなど換金性のあるものは、金銭と同様に給与として課税。',cond:['少額でも課税','創業記念品・永年勤続表彰でも、商品券は課税'],base:'所得税法36条、所得税基本通達36-21・36-22'},
+ {id:'kenshin',cat:'福利厚生',t:'健康診断・人間ドック',v:'jo',
+  rule:'法定の健康診断は課税しない。人間ドックも、一定年齢以上の全員を対象に会社が直接費用を負担し、著しく高額でなければ課税しない。',
+  cond:['対象者が全員（又は一定年齢以上の全員）','会社が医療機関に直接支払う','特定の役員だけ・高額なものは課税'],base:'国税庁 質疑応答事例（人間ドックの費用負担）'},
+ {id:'zaitaku',cat:'手当',t:'在宅勤務手当',v:'ka',
+  rule:'精算を要しない定額の在宅勤務手当は、給与として課税。業務に使用した部分を合理的に計算して精算する方法なら課税しない。',
+  cond:['毎月定額で渡しきり → 課税','実費精算（領収書等で業務使用部分を精算） → 非課税','通信費・電気料金は国税庁FAQの計算方法で業務分を算定可'],base:'国税庁「在宅勤務に係る費用負担等に関するFAQ（源泉所得税関係）」'},
+ {id:'kashitsuke',cat:'福利厚生',t:'無利息・低利の貸付',v:'jo',
+  rule:'従業員への金銭の貸付は、適正な利息との差額が経済的利益として課税されるが、次の場合は課税しない。',
+  cond:['災害・病気など臨時的に多額の生活資金が必要な場合の、返済期間が合理的な貸付','会社の借入金の平均調達金利など合理的な利率以上で貸し付けている','経済的利益の額が年5,000円以下'],base:'所得税基本通達36-28'},
+];
+// マイカー・自転車通勤の非課税限度額（令和8年4月1日以後）[距離下限km, 月額]
+var TSUKIN = [[2,4200],[10,7300],[15,13500],[25,19700],[35,25900],[45,32300],[55,38700],[65,45700],[75,52700],[85,59600],[95,66400]];
+
+</script>
+<script>
+/* 給与・手当の課税判定ナビ 計算ロジック（令和8年4月1日以後） */
+var KZ = (function(){
+  const fl = Math.floor;
+  const TRANSIT_MAX = 150000, PARKING_MAX = 5000;
+  // マイカー・自転車の片道距離に応じた限度額
+  function carLimit(km, table){
+    table = table || (typeof TSUKIN !== 'undefined' ? TSUKIN : []);
+    if (!(km >= 2)) return 0;
+    let lim = 0; for (const [lo, v] of table) if (km >= lo) lim = v;
+    return lim;
+  }
+  // mode: car / train / both
+  function tsukin(o, table){
+    const paid = o.paid || 0;
+    let car = 0, train = 0, park = 0;
+    if (o.mode !== 'train'){ car = carLimit(o.km || 0, table); park = car > 0 ? Math.min(o.parking || 0, PARKING_MAX) : 0 }
+    if (o.mode !== 'car') train = o.fare || 0;
+    const limit = Math.min(TRANSIT_MAX, car + park + train);
+    const nonTax = Math.min(paid, limit);
+    return {car, park, train, limit, nonTax, tax: paid - nonTax};
+  }
+  // 食事：value=食事の価額（税抜・月額）、self=本人負担額、old=令和8年3月以前
+  function shokuji(o){
+    const value = o.value || 0, self = Math.min(o.self || 0, value);
+    const co = value - self, cap = o.old ? 3500 : 7500;
+    const half = value > 0 && self * 2 >= value, under = co <= cap;
+    const ok = value === 0 || (half && under);
+    // 本人負担額の目安：両方を満たす最小の本人負担
+    const needSelf = Math.max(Math.ceil(value / 2), value - cap);
+    return {value, self, co, cap, half, under, ok, tax: ok ? 0 : co, needSelf};
+  }
+  // 宿日直：per=1回の支給額、meal=1回の食事の価額、n=回数
+  function shukuchoku(o){
+    const per = o.per || 0, meal = o.meal || 0, n = o.n || 0;
+    const lim = Math.max(0, 4000 - meal);
+    const taxPer = Math.max(0, per - lim);
+    return {lim, taxPer, nonPer: per - taxPer, tax: taxPer * n, nonTax: (per - taxPer) * n, total: per * n};
+  }
+  // 社宅（使用人）：bld=建物の課税標準額、area=総床面積㎡、land=敷地の課税標準額、got=徴収額（月額）
+  function shataku(o){
+    const b = fl((o.bld || 0) * 0.002), m = fl(12 * (o.area || 0) / 3.3), l = fl((o.land || 0) * 0.0022);
+    const rent = b + m + l, got = o.got || 0;
+    const ok = rent === 0 || got * 2 >= rent;
+    return {b, m, l, rent, half: Math.ceil(rent / 2), got, ok, tax: ok ? 0 : Math.max(0, rent - got)};
+  }
+  return {carLimit, tsukin, shokuji, shukuchoku, shataku, TRANSIT_MAX, PARKING_MAX};
+})();
+if (typeof module !== 'undefined') module.exports = KZ;
+
+</script>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const fmt=n=>Math.round(n).toLocaleString('ja-JP');
+const num=v=>{const n=parseInt(String(v||'').replace(/[^\d]/g,''),10);return isNaN(n)?0:n};
+const dec=v=>{const n=parseFloat(String(v||'').replace(/[^\d.]/g,''));return isNaN(n)?0:n};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const VL={hi:'非課税',jo:'条件付き',ka:'課税'};
+const CAT_ORDER=['通勤・出張','食事','手当','住宅','慶弔','表彰','教育','行事','物品','福利厚生'];
+const LS='kazei-navi-v1';
+let S={tab:'judge',c:'tsukin',q:'',v:'',open:'',in:{tMode:'car',tKm:'12',tPark:'0',tFare:'0',tPaid:'10000',sVal:'10000',sSelf:'5000',sOld:false,dPer:'5000',dN:'4',dMeal:'0',hBld:'5000000',hArea:'60',hLand:'4000000',hGot:'10000'}};
+try{const s=JSON.parse(localStorage.getItem(LS)||'null');if(s&&s.in){S=Object.assign(S,s,{in:Object.assign(S.in,s.in)})}}catch(e){}
+const save=()=>{try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}};
+
+/* ---- 判定 ---- */
+const norm=s=>String(s).toLowerCase().replace(/[ァ-ン]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60));
+function hay(it){return norm([it.t,it.cat,it.rule,(it.cond||[]).join(' '),it.base,it.memo||''].join(' '))}
+function renderList(){
+  const q=norm(S.q.trim()), words=q.split(/\s+/).filter(Boolean);
+  const hit=ITEMS.filter(it=>words.every(w=>hay(it).includes(w)));
+  // フィルターの件数
+  document.querySelectorAll('#flt button').forEach(b=>{const v=b.dataset.v;b.classList.toggle('on',v===S.v);b.querySelector('i').textContent=hit.filter(it=>!v||it.v===v).length});
+  const shown=hit.filter(it=>!S.v||it.v===S.v);
+  if(!shown.length){$('list').innerHTML='<div class="empty">該当する項目がありません</div>';return}
+  const cats=CAT_ORDER.filter(c=>shown.some(it=>it.cat===c)).concat([...new Set(shown.map(it=>it.cat))].filter(c=>!CAT_ORDER.includes(c)));
+  $('list').innerHTML=cats.map(c=>'<div class="grp">'+esc(c)+'</div><div class="list">'+shown.filter(it=>it.cat===c).map(it=>{
+    const o=S.open===it.id;
+    return '<div class="it'+(o?' open':'')+'" data-id="'+it.id+'"><button type="button" aria-expanded="'+o+'"><span>'+esc(it.t)+'</span><span class="chip '+it.v+'">'+VL[it.v]+'</span></button>'+
+      (o?'<div class="det"><div class="rule">'+esc(it.rule)+'</div>'+
+        (it.cond&&it.cond.length?'<ul>'+it.cond.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'')+
+        (it.memo?'<div class="memo">'+esc(it.memo)+'</div>':'')+
+        '<div class="base">根拠　<b>'+esc(it.base)+'</b></div>'+
+        (it.calc?'<button type="button" class="go" data-calc="'+it.calc+'">この条件で計算する</button>':'')+'</div>':'')+'</div>';
+  }).join('')+'</div>').join('');
+}
+$('q').value=S.q;
+$('q').addEventListener('input',e=>{S.q=e.target.value;renderList();save()});
+$('flt').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;S.v=b.dataset.v;renderList();save()});
+$('list').addEventListener('click',e=>{
+  const g=e.target.closest('.go');if(g){S.c=g.dataset.calc;showTab('calc');window.scrollTo(0,0);return}
+  const b=e.target.closest('.it>button');if(!b)return;const id=b.parentNode.dataset.id;S.open=S.open===id?'':id;renderList();save();
+});
+
+/* ---- 計算 ---- */
+const IDS=['tKm','tPark','tFare','tPaid','sVal','sSelf','dPer','dN','dMeal','hBld','hArea','hLand','hGot'];
+IDS.forEach(id=>{const el=$(id);el.value=S.in[id];el.addEventListener('input',()=>{S.in[id]=el.value;calc();save()});
+  el.addEventListener('blur',()=>{if(el.inputMode==='numeric'&&el.value!=='')el.value=fmt(num(el.value))});
+  if(el.inputMode==='numeric'&&el.value!=='')el.value=fmt(num(el.value));
+  el.addEventListener('focus',()=>{if(el.inputMode==='numeric')el.value=String(num(el.value)||'');});
+});
+$('sOld').checked=!!S.in.sOld;$('sOld').addEventListener('change',e=>{S.in.sOld=e.target.checked;calc();save()});
+$('tMode').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;S.in.tMode=b.dataset.m;calc();save()});
+$('seg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;S.c=b.dataset.c;showCalc();save()});
+function showCalc(){document.querySelectorAll('#seg button').forEach(b=>b.classList.toggle('on',b.dataset.c===S.c));document.querySelectorAll('[data-pane]').forEach(p=>p.hidden=p.dataset.pane!==S.c);calc()}
+function big(el,v,bad){el.innerHTML=fmt(v)+'<small>円</small>';el.classList.toggle('bad',!!bad)}
+function bandLabel(i){const lo=TSUKIN[i][0],hi=TSUKIN[i+1]?TSUKIN[i+1][0]:null;return lo+'km以上'+(hi?hi+'km未満':'')}
+function calc(){
+  const I=S.in;
+  // 通勤
+  const m=I.tMode;document.querySelectorAll('#tMode button').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  $('tKmF').hidden=$('tParkF').hidden=m==='train';$('tFareF').hidden=m==='car';
+  const km=dec(I.tKm);
+  const t=KZ.tsukin({mode:m,km,parking:num(I.tPark),fare:num(I.tFare),paid:num(I.tPaid)});
+  big($('tTax'),t.tax,t.tax>0);$('tNon').textContent=fmt(t.nonTax);$('tLim').textContent=fmt(t.limit);
+  const notes=[];
+  if(m!=='train'){notes.push(km<2?'片道2km未満のため、マイカー・自転車分は全額課税です。':'距離による限度額 '+fmt(t.car)+'円'+(t.park?'＋駐車場代 '+fmt(t.park)+'円':''));
+    if(num(I.tPark)>5000&&km>=2)notes.push('駐車場代は月5,000円までしか加算できません。')}
+  if(m!=='car'&&t.train)notes.push('定期代 '+fmt(t.train)+'円');
+  if(t.car+t.park+t.train>150000)notes.push('合計が月15万円を超えるため、15万円が限度です。');
+  $('tNote').textContent=notes.join('　');
+  const idx=km>=2?TSUKIN.reduce((a,r,i)=>km>=r[0]?i:a,-1):-1;
+  $('tTbl').innerHTML='<tr><th>片道の距離</th><th>月額の限度</th></tr><tr'+(m!=='train'&&km<2?' class="hit"':'')+'><td class="j">2km未満</td><td>全額課税</td></tr>'+TSUKIN.map((r,i)=>'<tr'+(m!=='train'&&i===idx?' class="hit"':'')+'><td class="j">'+bandLabel(i)+'</td><td>'+fmt(r[1])+'</td></tr>').join('');
+  // 食事
+  const s=KZ.shokuji({value:num(I.sVal),self:num(I.sSelf),old:I.sOld});
+  $('sLab').textContent=s.ok?'判定':'課税（会社負担の全額）';
+  if(s.ok){$('sBig').textContent='非課税';$('sBig').classList.remove('bad')}else big($('sBig'),s.tax,true);
+  $('sCo').textContent=fmt(s.co);$('sNeed').textContent=fmt(s.needSelf);
+  $('sChk').innerHTML=[[s.half,'本人負担が食事の価額の50%以上（'+fmt(s.self)+' / '+fmt(s.value)+'）'],[s.under,'会社負担が月'+fmt(s.cap)+'円以下（'+fmt(s.co)+'円）']]
+    .map(([ok,txt])=>'<div class="ck '+(ok?'y':'n')+'"><i>'+(ok?'✓':'×')+'</i><span>'+txt+'</span></div>').join('');
+  // 宿日直
+  const d=KZ.shukuchoku({per:num(I.dPer),meal:num(I.dMeal),n:num(I.dN)});
+  big($('dTax'),d.tax,d.tax>0);$('dLim').textContent=fmt(d.lim);$('dNon').textContent=fmt(d.nonTax);
+  // 社宅
+  const h=KZ.shataku({bld:num(I.hBld),area:dec(I.hArea),land:num(I.hLand),got:num(I.hGot)});
+  big($('hTax'),h.tax,h.tax>0);$('hLab').textContent=h.ok?'非課税（50%以上を徴収）':'課税される部分（月額）';
+  $('hRent').textContent=fmt(h.rent);$('hHalf').textContent=fmt(h.half);
+  $('hTbl').innerHTML='<tr><th>賃貸料相当額の内訳</th><th>月額</th></tr><tr><td class="j">建物 × 0.2%</td><td>'+fmt(h.b)+'</td></tr><tr><td class="j">12円 × 床面積 ÷ 3.3㎡</td><td>'+fmt(h.m)+'</td></tr><tr><td class="j">敷地 × 0.22%</td><td>'+fmt(h.l)+'</td></tr><tr class="tot"><td class="j">賃貸料相当額</td><td>'+fmt(h.rent)+'</td></tr>';
+}
+
+/* ---- 早見 ---- */
+$('qTbl').innerHTML='<tr><th>項目</th><th>非課税の限度</th></tr>'+[
+  ['通勤手当（電車・バス）','月150,000円'],['通勤手当（マイカー）','距離に応じ 4,200〜66,400円'],['駐車場代の加算','月5,000円'],
+  ['食事（会社負担）','月7,500円・本人50%以上'],['深夜勤務の夜食代','1回650円'],['宿日直料','1回4,000円'],
+  ['創業記念品','処分見込価額 1万円'],['社員割引','販売価格の70%以上'],['社員旅行','4泊5日以内・参加50%以上'],
+  ['永年勤続表彰','勤続10年以上・5年間隔'],['社宅（使用人）','賃貸料相当額の50%徴収'],['貸付の利息','経済的利益 年5,000円']
+].map(r=>'<tr><td class="j">'+r[0]+'</td><td class="j" style="text-align:right">'+r[1]+'</td></tr>').join('');
+
+/* ---- タブ ---- */
+function showTab(t){S.tab=t;document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
+  ['judge','calc','quick'].forEach(k=>$('v-'+k).hidden=k!==t);if(t==='calc')showCalc();save()}
+document.querySelector('nav.tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;showTab(b.dataset.tab);window.scrollTo(0,0)});
+
+renderList();showTab(S.tab);
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+})();
+</script>
+</body>
+</html>
